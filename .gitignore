@@ -1,0 +1,5 @@
+.bam
+*.exe.manifest
+*.exe
+*.dll
+*.obj
