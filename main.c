@@ -13,8 +13,8 @@
 // H file
 typedef struct Net_TCPSockAddr_S Net_TCPSockAddr_T;
 typedef struct Net_TCPSock_S     Net_TCPSock_T;
-extern size_t Net_TCPSockAddrSize;
-extern size_t Net_TCPSockSize;
+extern const size_t Net_TCPSockAddrSize;
+extern const size_t Net_TCPSockSize;
 
 #define NET_DONTBLOCK 0
 #define NET_BLOCK     1
@@ -24,16 +24,19 @@ struct Net_TCPSockAddr_S
 {
    int valid_addr_flag;
    struct sockaddr_storage address;
+   socklen_t len;
 };
 
 struct Net_TCPSock_S
 {
    int type;
    int socket_file;
+   Net_TCPSockAddr_T addr_local;
+   Net_TCPSockAddr_T addr_remote;
 };
 
-size_t Net_TCPSockAddrSize = sizeof(Net_TCPSockAddr_T);
-size_t Net_TCPSockSize     = sizeof(Net_TCPSock_T);
+size_t const Net_TCPSockAddrSize = sizeof(Net_TCPSockAddr_T);
+size_t const Net_TCPSockSize     = sizeof(Net_TCPSock_T);
 
 #define TYPE_TCPCLIENT 0
 #define TYPE_TCPSERVER 1
@@ -60,6 +63,51 @@ void Net_Shutdown(void)
    WSACleanup();
 }
 
+Net_TCPSockAddr_T * Net_TCPGetRemoteAddr(Net_TCPSock_T * sock)
+{
+   return &sock->addr_remote;
+}
+
+Net_TCPSockAddr_T * Net_TCPGetLocalAddr(Net_TCPSock_T * sock)
+{
+   return &sock->addr_local;
+}
+#define INVALID_SOCKET_NAME "<INVALID>"
+
+size_t Net_TCPAddrToString(Net_TCPSockAddr_T * addr, char * string, size_t size)
+{
+   size_t out_size;
+   if(addr->valid_addr_flag == 1)
+   {
+
+      if(addr->address.ss_family == AF_INET)
+      {
+         out_size = INET_ADDRSTRLEN;
+      }
+      else if(addr->address.ss_family == AF_INET6)
+      {
+         out_size = INET6_ADDRSTRLEN;
+      }
+      else
+      {
+         out_size = 0;
+      }
+
+      if(string != NULL && out_size > 0)
+      {
+         inet_ntop(addr->address.ss_family, &addr->address, string, size);
+      }
+   }
+   else 
+   {
+      out_size = sizeof(INVALID_SOCKET_NAME);
+      if(string != NULL)
+      {
+         strcpy(string, INVALID_SOCKET_NAME);
+      }
+   }
+   return out_size;
+}
 
 
 int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char * port_str)
@@ -67,6 +115,7 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
 
    struct addrinfo hints, *results, *loop;
    int gai_result;
+   int gsn_result;
    int c_result;
    int result;
    memset(&hints, 0, sizeof(struct addrinfo));
@@ -75,6 +124,10 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_protocol = IPPROTO_TCP;
 
+   sock->socket_file = INVALID_SOCKET;
+   sock->addr_local.valid_addr_flag  = 0;
+   sock->addr_remote.valid_addr_flag = 0;
+
    gai_result = getaddrinfo(address_str, port_str, &hints, &results);
    if(gai_result)
    {
@@ -82,7 +135,6 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
    }
    else
    {
-      sock->socket_file = INVALID_SOCKET;
       loop = results;
       while(loop != NULL && sock->socket_file == INVALID_SOCKET)
       {
@@ -102,6 +154,19 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
             else
             {
                sock->type = TYPE_TCPCLIENT;
+               memcpy(&sock->addr_remote.address, loop->ai_addr, loop->ai_addrlen);
+               sock->addr_remote.len = loop->ai_addrlen;
+               sock->addr_remote.valid_addr_flag = 1;
+
+               gsn_result = getsockname(sock->socket_file, (struct sockaddr * )&sock->addr_local.address, &sock->addr_local.len);
+               if(gsn_result == 0)
+               {
+                  sock->addr_local.valid_addr_flag = 1;
+               }
+               else
+               {
+                  sock->addr_local.valid_addr_flag = 0;
+               }
                // Exit the loop
             }
          }
@@ -228,6 +293,9 @@ void Net_TCPCloseSocket(Net_TCPSock_T * sock)
       closesocket(sock->socket_file);
       sock->socket_file = INVALID_SOCKET;
    }
+
+   sock->addr_local.valid_addr_flag  = 0;
+   sock->addr_remote.valid_addr_flag = 0;
 }
 
 void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char * port_str, int backlog)
@@ -243,6 +311,10 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_protocol = IPPROTO_TCP;
 
+   sock->socket_file = INVALID_SOCKET;
+   sock->addr_local.valid_addr_flag  = 0;
+   sock->addr_remote.valid_addr_flag = 0;
+
    gai_result = getaddrinfo(address_str, port_str, &hints, &results);
    if(gai_result)
    {
@@ -250,7 +322,6 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
    }
    else
    {
-      sock->socket_file = INVALID_SOCKET;
       loop = results;
       while(loop != NULL && sock->socket_file == INVALID_SOCKET)
       {
@@ -278,8 +349,11 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
                }
                else
                {
-                  sock->type = TYPE_TCPCLIENT;
                   // Exit the loop
+                  memcpy(&sock->addr_local.address, loop->ai_addr, loop->ai_addrlen);
+                  sock->addr_local.len = loop->ai_addrlen;
+                  sock->addr_local.valid_addr_flag = 1;
+                  sock->addr_remote.valid_addr_flag = 0;
                }
             }
          }
@@ -315,10 +389,14 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
    int result;
    int run_cmd;
    int s_result;
+   int info_result;
    struct fd_set sock_set;
    struct timeval zero_time;
 
    new_client->socket_file = INVALID_SOCKET;
+   new_client->addr_remote.valid_addr_flag = 0;
+   new_client->addr_local.valid_addr_flag  = 0;
+
    if(server->type == TYPE_TCPSERVER)
    {
       if(block == NET_BLOCK) 
@@ -344,11 +422,36 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
 
       if(run_cmd == 1)
       {
-         new_client->socket_file = accept(server->socket_file, NULL, NULL);
+         new_client->addr_remote.len = sizeof(struct sockaddr_storage);
+         new_client->socket_file = accept(server->socket_file, (struct sockaddr *)&new_client->addr_remote.address, &new_client->addr_remote.len);
          if(new_client->socket_file != INVALID_SOCKET)
          {
             result = 1;
             new_client->type = TYPE_TCPCLIENT;
+            new_client->addr_remote.valid_addr_flag = 1;
+
+            new_client->addr_local.len = sizeof(struct sockaddr_storage);
+            info_result = getsockname(new_client->socket_file, 
+                                      (struct sockaddr *)&new_client->addr_local.address, 
+                                      &new_client->addr_local.len);
+            printf("info_result: %i\n", info_result);
+            if(info_result == 0)
+            {
+               new_client->addr_local.valid_addr_flag = 1;
+               
+            }
+            /*
+            info_result = getpeername(new_client->socket_file, 
+                                      (struct sockaddr *)&new_client->addr_remote.address, 
+                                      &new_client->addr_remote.len);
+
+            printf("info_result: %i\n", info_result);
+            if(info_result == 0)
+            {
+               new_client->addr_remote.valid_addr_flag = 1;
+            }
+            */
+            
          }
          else
          {
@@ -404,6 +507,8 @@ void Net_GetTCPSocketAddress(Net_TCPSockAddr_T * address, const char * address_s
 int main(int args, char * argc[])
 {
    const char * hi = "HI HOW ARE YOU?";
+   char l_name[256];
+   char r_name[256];
    if(args == 4)
    {
       const char * type = argc[1];
@@ -423,11 +528,16 @@ int main(int args, char * argc[])
          client = malloc(Net_TCPSockSize);
 
          Net_TCPListenOn(server, addr, port, 10);
+         Net_TCPAddrToString(Net_TCPGetLocalAddr(server), l_name, 256);
+         printf("Bound To: %s\n", l_name);
          result = 0;
          while(result == 0)
          {
             result = Net_TCPAccept(server, client, NET_DONTBLOCK);
          }
+         Net_TCPAddrToString(Net_TCPGetLocalAddr(client), l_name, 256);
+         Net_TCPAddrToString(Net_TCPGetRemoteAddr(client), r_name, 256);
+         printf("connected (%s, %s)\n", l_name, r_name);
          size = Net_TCPSend(client, hi, strlen(hi) + 1, NET_DONTBLOCK);
          printf("Sent: [%i] %s\n", size, hi);
          //fgetc(stdin);
@@ -447,7 +557,9 @@ int main(int args, char * argc[])
 
          socket = malloc(Net_TCPSockSize);
          Net_TCPConnectTo(socket, addr, port);
-         printf("Connected\n");
+         Net_TCPAddrToString(Net_TCPGetLocalAddr(socket), l_name, 256);
+         Net_TCPAddrToString(Net_TCPGetRemoteAddr(socket), r_name, 256);
+         printf("connected (%s, %s)\n", l_name, r_name);
          size = 0;
          while(size == 0)
          {
