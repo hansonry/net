@@ -16,6 +16,9 @@ typedef struct Net_TCPSock_S     Net_TCPSock_T;
 extern size_t Net_TCPSockAddrSize;
 extern size_t Net_TCPSockSize;
 
+#define NET_DONTBLOCK 0
+#define NET_BLOCK     1
+
 // C file
 struct Net_TCPSockAddr_S
 {
@@ -79,12 +82,12 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
    }
    else
    {
-      sock->socket_file = -1;
+      sock->socket_file = INVALID_SOCKET;
       loop = results;
-      while(loop != NULL && sock->socket_file == -1)
+      while(loop != NULL && sock->socket_file == INVALID_SOCKET)
       {
          sock->socket_file = socket(loop->ai_family, loop->ai_socktype, loop->ai_protocol);
-         if(sock->socket_file == -1)
+         if(sock->socket_file == INVALID_SOCKET)
          {
             // Move on to the next Address to try
          }
@@ -94,7 +97,7 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
             if(c_result == -1)
             {
                closesocket(sock->socket_file); // Windows only
-               sock->socket_file = -1;
+               sock->socket_file = INVALID_SOCKET;
             }
             else
             {
@@ -108,12 +111,12 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
       }
       freeaddrinfo(results);
 
-      if(sock->socket_file == -1)
+      if(sock->socket_file == INVALID_SOCKET)
       {
          printf("Error Connecting to socket address (%s, %s)\n", address_str, port_str);
       }
    }
-   if(sock->socket_file != -1)
+   if(sock->socket_file != INVALID_SOCKET)
    {
       result = 1;
    }
@@ -124,45 +127,110 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
    return result;
 }
 
-int Net_TCPRecv(Net_TCPSock_T * sock, void * buffer, int buffer_size)
+int Net_TCPRecv(Net_TCPSock_T * sock, void * buffer, int buffer_size, int block)
 {
    int result;
-   if(sock->socket_file == -1 || sock->type != TYPE_TCPCLIENT)
+   int run_cmd;
+   int s_result;
+   struct fd_set sock_set;
+   struct timeval zero_time;
+
+   if(sock->socket_file == INVALID_SOCKET || sock->type != TYPE_TCPCLIENT)
    {
       result = -1;
    }
    else
    {
-      result = recv(sock->socket_file, buffer, buffer_size, 0);
+      if(block == NET_BLOCK) 
+      {
+         run_cmd = 1;
+      }
+      else
+      {
+         zero_time.tv_sec  = 0;
+         zero_time.tv_usec = 0;
+         FD_ZERO(&sock_set);
+         FD_SET(sock->socket_file, &sock_set);
+         s_result = select(sock->socket_file + 1, &sock_set, NULL, NULL, &zero_time);
+         if(s_result != SOCKET_ERROR && s_result != 0)
+         {
+            run_cmd = 1;
+         }
+         else
+         {
+            run_cmd = 0;
+         }
+      }
+
+      if(run_cmd == 1)
+      {
+         result = recv(sock->socket_file, buffer, buffer_size, 0);
+      }
+      else
+      {
+         result = 0;
+      }
    }
    return result;
 }
 
-int Net_TCPSend(Net_TCPSock_T * sock, const void * buffer, int buffer_size)
+int Net_TCPSend(Net_TCPSock_T * sock, const void * buffer, int buffer_size, int block)
 {
    int result;
-   if(sock->socket_file == -1 || sock->type != TYPE_TCPCLIENT)
+   int run_cmd;
+   int s_result;
+   struct fd_set sock_set;
+   struct timeval zero_time;
+
+   if(sock->socket_file == INVALID_SOCKET || sock->type != TYPE_TCPCLIENT)
    {
       result = -1;
    }
    else
    {
-      result = send(sock->socket_file, buffer, buffer_size, 0);
+      if(block == NET_BLOCK) 
+      {
+         run_cmd = 1;
+      }
+      else
+      {
+         zero_time.tv_sec  = 0;
+         zero_time.tv_usec = 0;
+         FD_ZERO(&sock_set);
+         FD_SET(sock->socket_file, &sock_set);
+         s_result = select(sock->socket_file + 1, NULL, &sock_set, NULL, &zero_time);
+         if(s_result != SOCKET_ERROR && s_result != 0)
+         {
+            run_cmd = 1;
+         }
+         else
+         {
+            run_cmd = 0;
+         }
+      }
+      
+      if(run_cmd == 1)
+      {
+         result = send(sock->socket_file, buffer, buffer_size, 0);
+      }
+      else
+      {
+         result = 0;
+      }
    }
    return result;
 }
 
 void Net_TCPCloseSocket(Net_TCPSock_T * sock)
 {
-   if(sock->socket_file != -1)
+   if(sock->socket_file != INVALID_SOCKET)
    {
       closesocket(sock->socket_file);
-      sock->socket_file = -1;
+      sock->socket_file = INVALID_SOCKET;
    }
 }
 
-#define BACKLOG 10
-void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char * port_str)
+void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char * port_str, int backlog)
 {
    struct addrinfo hints, *results, *loop;
    int gai_result;
@@ -182,12 +250,12 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
    }
    else
    {
-      sock->socket_file = -1;
+      sock->socket_file = INVALID_SOCKET;
       loop = results;
-      while(loop != NULL && sock->socket_file == -1)
+      while(loop != NULL && sock->socket_file == INVALID_SOCKET)
       {
          sock->socket_file = socket(loop->ai_family, loop->ai_socktype, loop->ai_protocol);
-         if(sock->socket_file == -1)
+         if(sock->socket_file == INVALID_SOCKET)
          {
             // Move on to the next Address to try
          }
@@ -198,7 +266,7 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
             {
                printf("Error setting server socket to Resue address\n");
                closesocket(sock->socket_file);
-               sock->socket_file = 1;
+               sock->socket_file = INVALID_SOCKET;
             }
             else
             {
@@ -206,7 +274,7 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
                if(b_result == -1)
                {
                   closesocket(sock->socket_file); // Windows only
-                  sock->socket_file = -1;
+                  sock->socket_file = INVALID_SOCKET;
                }
                else
                {
@@ -221,17 +289,17 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
       }
       freeaddrinfo(results);
 
-      if(sock->socket_file == -1)
+      if(sock->socket_file == INVALID_SOCKET)
       {
          printf("Error Listening on socket address (%s, %s)\n", address_str, port_str);
       }
       else
       {
-         if(listen(sock->socket_file, BACKLOG) == -1)
+         if(listen(sock->socket_file, backlog) == -1)
          {
             printf("Failed To Setup Backlog on socket address (%s, %s)\n", address_str, port_str);
             closesocket(sock->socket_file);
-            sock->socket_file = 1;
+            sock->socket_file = INVALID_SOCKET;
          }
          else
          {
@@ -242,17 +310,50 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
 
 }
 
-int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client)
+int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
 {
    int result;
-   new_client->socket_file = -1;
+   int run_cmd;
+   int s_result;
+   struct fd_set sock_set;
+   struct timeval zero_time;
+
+   new_client->socket_file = INVALID_SOCKET;
    if(server->type == TYPE_TCPSERVER)
    {
-      new_client->socket_file = accept(server->socket_file, NULL, NULL);
-      if(new_client->socket_file != -1)
+      if(block == NET_BLOCK) 
       {
-         result = 1;
-         new_client->type = TYPE_TCPCLIENT;
+         run_cmd = 1;
+      }
+      else
+      {
+         zero_time.tv_sec  = 0;
+         zero_time.tv_usec = 0;
+         FD_ZERO(&sock_set);
+         FD_SET(server->socket_file, &sock_set);
+         s_result = select(server->socket_file + 1, &sock_set, NULL, NULL, &zero_time);
+         if(s_result != SOCKET_ERROR && s_result != 0)
+         {
+            run_cmd = 1;
+         }
+         else
+         {
+            run_cmd = 0;
+         }
+      }
+
+      if(run_cmd == 1)
+      {
+         new_client->socket_file = accept(server->socket_file, NULL, NULL);
+         if(new_client->socket_file != INVALID_SOCKET)
+         {
+            result = 1;
+            new_client->type = TYPE_TCPCLIENT;
+         }
+         else
+         {
+            result = 0;
+         }
       }
       else
       {
@@ -314,14 +415,20 @@ int main(int args, char * argc[])
       {
          Net_TCPSock_T * server, *client;
          int size;
+         int result;
 
+         printf("Server\n");
          Net_Init();
          server = malloc(Net_TCPSockSize);
          client = malloc(Net_TCPSockSize);
 
-         Net_TCPListenOn(server, addr, port);
-         Net_TCPAccept(server, client);
-         size = Net_TCPSend(client, hi, strlen(hi) + 1);
+         Net_TCPListenOn(server, addr, port, 10);
+         result = 0;
+         while(result == 0)
+         {
+            result = Net_TCPAccept(server, client, NET_DONTBLOCK);
+         }
+         size = Net_TCPSend(client, hi, strlen(hi) + 1, NET_DONTBLOCK);
          printf("Sent: [%i] %s\n", size, hi);
          //fgetc(stdin);
          Net_TCPCloseSocket(client);
@@ -333,13 +440,19 @@ int main(int args, char * argc[])
          Net_TCPSock_T * socket;
          int size;
          char resp[512];
+
+         printf("Client\n");
          Net_Init();
 
 
          socket = malloc(Net_TCPSockSize);
          Net_TCPConnectTo(socket, addr, port);
          printf("Connected\n");
-         size = Net_TCPRecv(socket, resp, 1023);
+         size = 0;
+         while(size == 0)
+         {
+            size = Net_TCPRecv(socket, resp, 1023, NET_DONTBLOCK);
+         }
          resp[size] = '\0'; 
          printf("Recv: %s\n", resp);
 
