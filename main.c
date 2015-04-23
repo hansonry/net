@@ -158,6 +158,7 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
                sock->addr_remote.len = loop->ai_addrlen;
                sock->addr_remote.valid_addr_flag = 1;
 
+               sock->addr_local.len = sizeof(struct sockaddr_storage);
                gsn_result = getsockname(sock->socket_file, (struct sockaddr * )&sock->addr_local.address, &sock->addr_local.len);
                if(gsn_result == 0)
                {
