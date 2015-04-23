@@ -65,13 +65,46 @@ void Net_Shutdown(void)
 
 Net_TCPSockAddr_T * Net_TCPGetRemoteAddr(Net_TCPSock_T * sock)
 {
-   return &sock->addr_remote;
+   Net_TCPSockAddr_T * result;
+   if(sock == NULL)
+   {
+      result = NULL;
+   }
+   else
+   {
+      result = &sock->addr_remote;
+   }
+   return result;
 }
 
 Net_TCPSockAddr_T * Net_TCPGetLocalAddr(Net_TCPSock_T * sock)
 {
-   return &sock->addr_local;
+   Net_TCPSockAddr_T * result;
+   if(sock == NULL)
+   {
+      result = NULL;
+   }
+   else
+   {
+      result = &sock->addr_local;
+   }
+   return result;
 }
+
+int Net_TCPIsAddrValid(Net_TCPSockAddr_T * addr)
+{
+   int result;
+   if(addr == NULL)
+   {
+      result = 0;
+   }
+   else
+   {
+      result = addr->valid_addr_flag;
+   }
+   return result;
+}
+
 #define INVALID_SOCKET_NAME "<INVALID>"
 
 size_t Net_TCPAddrToString(Net_TCPSockAddr_T * addr, char * string, size_t size)
