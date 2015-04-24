@@ -5,6 +5,7 @@
 
 typedef struct Net_SockAddr_S Net_SockAddr_T;
 typedef struct Net_TCPSock_S  Net_TCPSock_T;
+typedef struct Net_UDPSock_S  Net_UDPSock_T;
 
 #define NET_DONTBLOCK 0
 #define NET_BLOCK     1
@@ -26,6 +27,12 @@ struct Net_TCPSock_S
    Net_SockAddr_T addr_remote;
 };
 
+struct Net_UDPSock_S
+{
+   int socket_file;
+   Net_SockAddr_T addr_local;
+};
+
 
 #endif // NET_OSINCLUDE
 
@@ -34,14 +41,20 @@ int Net_Init(void);
 
 void Net_Shutdown(void);
 
-const Net_SockAddr_T * Net_TCPSockGetRemoteAddr(Net_TCPSock_T * sock);
-
-const Net_SockAddr_T * Net_TCPSockGetLocalAddr(Net_TCPSock_T * sock);
 
 int Net_SockAddrIsValid(const Net_SockAddr_T * addr);
 
 
 size_t Net_AddrToString(const Net_SockAddr_T * addr, char * string, size_t size);
+
+int Net_SockAddrComp(const Net_SockAddr_T * addr1, const Net_SockAddr_T * addr2);
+
+
+// TCP
+
+const Net_SockAddr_T * Net_TCPSockGetRemoteAddr(Net_TCPSock_T * sock);
+
+const Net_SockAddr_T * Net_TCPSockGetLocalAddr(Net_TCPSock_T * sock);
 
 int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char * port_str);
 
@@ -55,7 +68,20 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
 
 int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block);
 
-void Net_GetTCPSocketAddress(Net_SockAddr_T * address, const char * address_str, const char * port_str);
+
+// UDP
+
+const Net_SockAddr_T * Net_UDPSockGetLocalAddr(Net_UDPSock_T * sock);
+
+int Net_UDPSockCreate(Net_UDPSock_T * sock, const char * address_str, const char * port_str);
+
+int Net_UDPRecv(Net_UDPSock_T * sock, void * buffer, int buffer_size, int block, Net_SockAddr_T * addr_from);
+
+int Net_UDPSend(Net_UDPSock_T * sock, const void * buffer, int buffer_size, int block, Net_SockAddr_T * addr_to);
+
+void Net_UDPCloseSocket(Net_UDPSock_T * sock);
+
+void Net_SockAddrCreateUDP(Net_SockAddr_T * address, const char * address_str, const char * port_str);
 
 #endif // __NET_H__
 

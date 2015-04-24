@@ -444,17 +444,6 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
                new_client->addr_local.valid_addr_flag = 1;
                
             }
-            /*
-            info_result = getpeername(new_client->socket_file, 
-                                      (struct sockaddr *)&new_client->addr_remote.address, 
-                                      &new_client->addr_remote.len);
-
-            printf("info_result: %i\n", info_result);
-            if(info_result == 0)
-            {
-               new_client->addr_remote.valid_addr_flag = 1;
-            }
-            */
             
          }
          else
@@ -477,20 +466,20 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
    return result;
 }
 
-void Net_GetTCPSocketAddress(Net_SockAddr_T * address, const char * address_str, const char * port_str)
+void Net_SockAddrCreateUDP(Net_SockAddr_T * address, const char * address_str, const char * port_str)
 {
    struct addrinfo hints, *results;
    int gai_result;
    memset(&hints, 0, sizeof(struct addrinfo));
    hints.ai_flags    = AI_CANONNAME | AI_ALL;
    hints.ai_family   = AF_UNSPEC;   
-   hints.ai_socktype = SOCK_STREAM;
-   hints.ai_protocol = IPPROTO_TCP;
+   hints.ai_socktype = SOCK_DGRAM;
+   hints.ai_protocol = IPPROTO_UDP;
 
    gai_result = getaddrinfo(address_str, port_str, &hints, &results);
    if(gai_result)
    {
-      printf("Error Getting TCP Socket Address (%s, %s) reason: %s\n", address_str, port_str, gai_strerror(gai_result));
+      printf("Error Getting UDP Socket Address (%s, %s) reason: %s\n", address_str, port_str, gai_strerror(gai_result));
       address->valid_addr_flag = 0;
    }
    else
