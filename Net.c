@@ -7,6 +7,16 @@
 #include "Net.h"
 
 
+#ifdef _WIN32
+#define THESET       struct fd_set
+#define CLOSESOCKET  closesocket
+#else // _WIN32
+
+#define INVALID_SOCKET  -1
+#define SOCKET_ERROR    -1
+#define CLOSESOCKET     close
+#define THESET          fd_set
+#endif // _WIN32
 
 #define TYPE_TCPCLIENT 0
 #define TYPE_TCPSERVER 1
@@ -14,6 +24,7 @@
 int Net_Init(void)
 {
    int error;
+#ifdef _WIN32
 
    WSADATA wsaData;
    if(WSAStartup(MAKEWORD(2,0), &wsaData) != 0)
@@ -25,12 +36,17 @@ int Net_Init(void)
    {
       error = 0;
    }
+#else
+   error = 0;
+#endif // _WIN32
    return error;
 }
 
 void Net_Shutdown(void)
 {
+#ifdef _WIN32
    WSACleanup();
+#endif // _WIN32
 }
 
 const Net_SockAddr_T * Net_TCPSockGetRemoteAddr(Net_TCPSock_T * sock)
@@ -151,7 +167,7 @@ int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char 
             c_result = connect(sock->socket_file, loop->ai_addr, loop->ai_addrlen);
             if(c_result == -1)
             {
-               closesocket(sock->socket_file); // Windows only
+               CLOSESOCKET(sock->socket_file); // Windows only
                sock->socket_file = INVALID_SOCKET;
             }
             else
@@ -201,7 +217,7 @@ int Net_TCPRecv(Net_TCPSock_T * sock, void * buffer, int buffer_size, int block)
    int result;
    int run_cmd;
    int s_result;
-   struct fd_set sock_set;
+   THESET sock_set;
    struct timeval zero_time;
 
    if(sock->socket_file == INVALID_SOCKET || sock->type != TYPE_TCPCLIENT)
@@ -248,7 +264,7 @@ int Net_TCPSend(Net_TCPSock_T * sock, const void * buffer, int buffer_size, int 
    int result;
    int run_cmd;
    int s_result;
-   struct fd_set sock_set;
+   THESET sock_set;
    struct timeval zero_time;
 
    if(sock->socket_file == INVALID_SOCKET || sock->type != TYPE_TCPCLIENT)
@@ -294,7 +310,7 @@ void Net_TCPCloseSocket(Net_TCPSock_T * sock)
 {
    if(sock->socket_file != INVALID_SOCKET)
    {
-      closesocket(sock->socket_file);
+      CLOSESOCKET(sock->socket_file);
       sock->socket_file = INVALID_SOCKET;
    }
 
@@ -340,7 +356,7 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
             if(s_result == -1)
             {
                printf("Error setting server socket to Resue address\n");
-               closesocket(sock->socket_file);
+               CLOSESOCKET(sock->socket_file);
                sock->socket_file = INVALID_SOCKET;
             }
             else
@@ -348,7 +364,7 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
                b_result = bind(sock->socket_file, loop->ai_addr, loop->ai_addrlen);
                if(b_result == -1)
                {
-                  closesocket(sock->socket_file); // Windows only
+                  CLOSESOCKET(sock->socket_file); // Windows only
                   sock->socket_file = INVALID_SOCKET;
                }
                else
@@ -376,7 +392,7 @@ void Net_TCPListenOn(Net_TCPSock_T * sock, const char * address_str, const char 
          if(listen(sock->socket_file, backlog) == -1)
          {
             printf("Failed To Setup Backlog on socket address (%s, %s)\n", address_str, port_str);
-            closesocket(sock->socket_file);
+            CLOSESOCKET(sock->socket_file);
             sock->socket_file = INVALID_SOCKET;
          }
          else
@@ -394,7 +410,7 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
    int run_cmd;
    int s_result;
    int info_result;
-   struct fd_set sock_set;
+   THESET sock_set;
    struct timeval zero_time;
 
    new_client->socket_file = INVALID_SOCKET;

@@ -4,4 +4,6 @@
 *.dll
 *.obj
 *.swp
+*.o
+net_test
 
