@@ -1,3 +1,3 @@
 REM Bundel the windows source
-git bundle create loadclone.bundle --since=7.days.ago master
+git bundle create net.bundle --since=7.days.ago master
 
