@@ -75,9 +75,9 @@ const Net_SockAddr_T * Net_UDPSockGetLocalAddr(Net_UDPSock_T * sock);
 
 int Net_UDPSockCreate(Net_UDPSock_T * sock, const char * address_str, const char * port_str);
 
-int Net_UDPRecv(Net_UDPSock_T * sock, void * buffer, int buffer_size, int block, Net_SockAddr_T * addr_from);
+int Net_UDPRecv(Net_UDPSock_T * sock, Net_SockAddr_T * addr_from, void * buffer, int buffer_size, int block);
 
-int Net_UDPSend(Net_UDPSock_T * sock, const void * buffer, int buffer_size, int block, Net_SockAddr_T * addr_to);
+int Net_UDPSend(Net_UDPSock_T * sock, Net_SockAddr_T * addr_to, const void * buffer, int buffer_size, int block);
 
 void Net_UDPCloseSocket(Net_UDPSock_T * sock);
 

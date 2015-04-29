@@ -482,6 +482,23 @@ int Net_TCPAccept(Net_TCPSock_T * server, Net_TCPSock_T * new_client, int block)
    return result;
 }
 
+// UDP
+
+
+const Net_SockAddr_T * Net_UDPSockGetLocalAddr(Net_UDPSock_T * sock)
+{
+   Net_SockAddr_T * result;
+   if(sock == NULL)
+   {
+      result = NULL;
+   }
+   else
+   {
+      result = &sock->addr_local;
+   }
+   return result;
+}
+
 void Net_SockAddrCreateUDP(Net_SockAddr_T * address, const char * address_str, const char * port_str)
 {
    struct addrinfo hints, *results;
@@ -510,5 +527,189 @@ void Net_SockAddrCreateUDP(Net_SockAddr_T * address, const char * address_str, c
    }
 
 }
+
+
+
+int Net_UDPSockCreate(Net_UDPSock_T * sock, const char * address_str, const char * port_str)
+{
+
+   struct addrinfo hints, *results, *loop;
+   int gai_result;
+   int gsn_result;
+   int b_result;
+   int result;
+   memset(&hints, 0, sizeof(struct addrinfo));
+   hints.ai_flags    = AI_PASSIVE | AI_ALL;
+   hints.ai_family   = AF_UNSPEC;   
+   hints.ai_socktype = SOCK_DGRAM;
+   hints.ai_protocol = IPPROTO_UDP;
+
+   sock->socket_file = INVALID_SOCKET;
+   sock->addr_local.valid_addr_flag  = 0;
+
+   gai_result = getaddrinfo(address_str, port_str, &hints, &results);
+   if(gai_result)
+   {
+      printf("Error Getting UDP Socket Address (%s, %s) reason: %s\n", address_str, port_str, gai_strerror(gai_result));
+   }
+   else
+   {
+      loop = results;
+      while(loop != NULL && sock->socket_file == INVALID_SOCKET)
+      {
+         sock->socket_file = socket(loop->ai_family, loop->ai_socktype, loop->ai_protocol);
+         if(sock->socket_file == INVALID_SOCKET)
+         {
+            // Move on to the next Address to try
+         }
+         else
+         {
+            b_result = bind(sock->socket_file, loop->ai_addr, loop->ai_addrlen);
+            if(b_result == -1)
+            {
+               CLOSESOCKET(sock->socket_file); // Windows only
+               sock->socket_file = INVALID_SOCKET;
+            }
+            else
+            {
+               memcpy(&sock->addr_local.address, loop->ai_addr, loop->ai_addrlen);
+               sock->addr_local.len = loop->ai_addrlen;
+               sock->addr_local.valid_addr_flag = 1;
+
+               // Exit the loop
+            }
+         }
+
+
+         loop = loop->ai_next;
+      }
+      freeaddrinfo(results);
+
+      if(sock->socket_file == INVALID_SOCKET)
+      {
+         printf("Error Connecting to socket address (%s, %s)\n", address_str, port_str);
+      }
+   }
+   if(sock->socket_file != INVALID_SOCKET)
+   {
+      result = 1;
+   }
+   else
+   {
+      result = 0;
+   }
+   return result;
+}
+
+
+int Net_UDPRecv(Net_UDPSock_T * sock, Net_SockAddr_T * addr_from, void * buffer, int buffer_size, int block)
+{
+   int result;
+   int run_cmd;
+   int s_result;
+   THESET sock_set;
+   struct timeval zero_time;
+
+
+   addr_from->valid_addr_flag = 0;
+
+   if(sock->socket_file == INVALID_SOCKET)
+   {
+      result = -1;
+   }
+   else
+   {
+      if(block == NET_BLOCK) 
+      {
+         run_cmd = 1;
+      }
+      else
+      {
+         zero_time.tv_sec  = 0;
+         zero_time.tv_usec = 0;
+         FD_ZERO(&sock_set);
+         FD_SET(sock->socket_file, &sock_set);
+         s_result = select(sock->socket_file + 1, &sock_set, NULL, NULL, &zero_time);
+         if(s_result != SOCKET_ERROR && s_result != 0)
+         {
+            run_cmd = 1;
+         }
+         else
+         {
+            run_cmd = 0;
+         }
+      }
+
+      if(run_cmd == 1)
+      {
+         addr_from->len = sizeof(struct sockaddr_storage);
+         result = recvfrom(sock->socket_file, buffer, buffer_size, 0, (struct sockaddr *)&addr_from->address, &addr_from->len);
+      }
+      else
+      {
+         result = 0;
+      }
+   }
+   return result;
+}
+
+int Net_UDPSend(Net_UDPSock_T * sock, Net_SockAddr_T * addr_to, const void * buffer, int buffer_size, int block)
+{
+   int result;
+   int run_cmd;
+   int s_result;
+   THESET sock_set;
+   struct timeval zero_time;
+
+   if(sock->socket_file == INVALID_SOCKET || addr_to->valid_addr_flag != 1)
+   {
+      result = -1;
+   }
+   else
+   {
+      if(block == NET_BLOCK) 
+      {
+         run_cmd = 1;
+      }
+      else
+      {
+         zero_time.tv_sec  = 0;
+         zero_time.tv_usec = 0;
+         FD_ZERO(&sock_set);
+         FD_SET(sock->socket_file, &sock_set);
+         s_result = select(sock->socket_file + 1, NULL, &sock_set, NULL, &zero_time);
+         if(s_result != SOCKET_ERROR && s_result != 0)
+         {
+            run_cmd = 1;
+         }
+         else
+         {
+            run_cmd = 0;
+         }
+      }
+      
+      if(run_cmd == 1)
+      {
+         result = sendto(sock->socket_file, buffer, buffer_size, 0, (struct sockaddr *)&addr_to->address, addr_to->len);
+      }
+      else
+      {
+         result = 0;
+      }
+   }
+   return result;
+}
+
+void Net_UDPCloseSocket(Net_UDPSock_T * sock)
+{
+   if(sock->socket_file != INVALID_SOCKET)
+   {
+      CLOSESOCKET(sock->socket_file);
+      sock->socket_file = INVALID_SOCKET;
+   }
+
+   sock->addr_local.valid_addr_flag  = 0;
+}
+
 
 
