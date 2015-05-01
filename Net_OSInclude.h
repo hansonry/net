@@ -1,5 +1,5 @@
-#ifndef __NETOSINCLUDE_H__
-#define __NETOSINCLUDE_H__
+#ifndef __NET_OSINCLUDE_H__
+#define __NET_OSINCLUDE_H__
 
 
 #ifdef _WIN32
@@ -18,5 +18,5 @@
 
 #define NET_OSINCLUDE
 
-#endif // __NETOSINCLUDE_H__
+#endif // __NET_OSINCLUDE_H__
 
