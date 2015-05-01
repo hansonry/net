@@ -45,8 +45,9 @@ void Net_Shutdown(void);
 int Net_SockAddrIsValid(const Net_SockAddr_T * addr);
 
 
-size_t Net_AddrToString(const Net_SockAddr_T * addr, char * string, size_t size);
+size_t Net_AddrIPToString(const Net_SockAddr_T * addr, char * string, size_t size);
 
+int Net_AddrPort(const Net_SockAddr_T * addr);
 int Net_SockAddrComp(const Net_SockAddr_T * addr1, const Net_SockAddr_T * addr2);
 
 

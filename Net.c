@@ -94,9 +94,9 @@ int Net_SockAddrIsValid(const Net_SockAddr_T * addr)
 
 #define INVALID_SOCKET_NAME "<INVALID>"
 
-size_t Net_AddrToString(const Net_SockAddr_T * addr, char * string, size_t size)
+size_t Net_AddrIPToString(const Net_SockAddr_T * addr, char * string, size_t size)
 {
-   size_t out_size;
+   size_t out_size, cpy_size;
    if(addr->valid_addr_flag == 1)
    {
 
@@ -120,15 +120,67 @@ size_t Net_AddrToString(const Net_SockAddr_T * addr, char * string, size_t size)
    }
    else 
    {
-      out_size = sizeof(INVALID_SOCKET_NAME);
+      out_size = sizeof(INVALID_SOCKET_NAME); // Includes Null Terminator
+      
+      if(out_size < size)
+      {
+         cpy_size = out_size;
+      }
+      else
+      {
+         cpy_size = size;
+      }
       if(string != NULL)
       {
-         strcpy(string, INVALID_SOCKET_NAME);
+         memcpy(string, INVALID_SOCKET_NAME, cpy_size);
+         string[cpy_size - 1] = '\0';
       }
    }
    return out_size;
 }
 
+int Net_AddrPort(const Net_SockAddr_T * addr)
+{
+   int port;
+   struct sockaddr_in  *addy_ipv4;
+   struct sockaddr_in6 *addy_ipv6;
+   if(addr->valid_addr_flag == 1)
+   {
+      if(addr->address.ss_family == AF_INET)
+      {
+         addy_ipv4 = (struct sockaddr_in *)&addr->address;
+         addy_ipv6 = NULL;
+      }
+      else if(addr->address.ss_family == AF_INET6)
+      {
+         addy_ipv4 = NULL;
+         addy_ipv6 = (struct sockaddr_in6 *)&addr->address;
+      }
+      else
+      {
+         addy_ipv4 = NULL;
+         addy_ipv6 = NULL; 
+      }
+
+      if(addy_ipv4 != NULL)
+      {
+         port = ntohs(addy_ipv4->sin_port);
+      }
+      else if(addy_ipv6 != NULL)
+      {
+         port = ntohs(addy_ipv6->sin6_port);
+      }
+      else
+      {
+         port = -1;
+      }
+   }
+   else
+   {
+      port = -1;
+   }
+   return port;
+}
 
 int Net_SockAddrComp(const Net_SockAddr_T * addr1, const Net_SockAddr_T * addr2)
 {

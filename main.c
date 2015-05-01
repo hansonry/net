@@ -75,15 +75,15 @@ int main(int args, char * argc[])
          client = malloc(sizeof(Net_TCPSock_T));
 
          Net_TCPListenOn(server, addr, port, 10);
-         Net_AddrToString(Net_TCPSockGetLocalAddr(server), l_name, 256);
-         printf("Bound To: %s\n", l_name);
+         Net_AddrIPToString(Net_TCPSockGetLocalAddr(server), l_name, 256);
+         printf("Bound To: [%s]:%i\n", l_name, Net_AddrPort(Net_TCPSockGetLocalAddr(server)));
          result = 0;
          while(result == 0)
          {
             result = Net_TCPAccept(server, client, NET_DONTBLOCK);
          }
-         Net_AddrToString(Net_TCPSockGetLocalAddr(client), l_name, 256);
-         Net_AddrToString(Net_TCPSockGetRemoteAddr(client), r_name, 256);
+         Net_AddrIPToString(Net_TCPSockGetLocalAddr(client), l_name, 256);
+         Net_AddrIPToString(Net_TCPSockGetRemoteAddr(client), r_name, 256);
          printf("connected (%s, %s)\n", l_name, r_name);
          size = Net_TCPSend(client, hi, strlen(hi) + 1, NET_DONTBLOCK);
          printf("Sent: [%i] %s\n", size, hi);
@@ -104,8 +104,8 @@ int main(int args, char * argc[])
 
          socket = malloc(sizeof(Net_TCPSock_T));
          Net_TCPConnectTo(socket, addr, port);
-         Net_AddrToString(Net_TCPSockGetLocalAddr(socket), l_name, 256);
-         Net_AddrToString(Net_TCPSockGetRemoteAddr(socket), r_name, 256);
+         Net_AddrIPToString(Net_TCPSockGetLocalAddr(socket), l_name, 256);
+         Net_AddrIPToString(Net_TCPSockGetRemoteAddr(socket), r_name, 256);
          printf("connected (%s, %s)\n", l_name, r_name);
          size = 0;
          while(size == 0)
