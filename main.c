@@ -6,11 +6,56 @@
 #include "Net.h"
 
 
+void test_addy_cmp(void)
+{
+   int result;
+   Net_SockAddr_T addr1, addr2;
+   struct sockaddr_in * ipv4_addr;
+   struct sockaddr_in6 * ipv6_addr;
+   unsigned char ipv6_addr1[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+   unsigned char ipv6_addr2[] = { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+   addr1.valid_addr_flag = 1;
+   addr2.valid_addr_flag = 1;
+
+   /*
+   ipv4_addr = (struct sockaddr_in*)&addr1.address;
+   ipv4_addr->sin_family = AF_INET;
+   ipv4_addr->sin_port = htons(1231);
+   ipv4_addr->sin_addr.S_un.S_addr = htonl(0xC0A80103);
+   */
+
+   /*
+   ipv4_addr = (struct sockaddr_in*)&addr2.address;
+   ipv4_addr->sin_family = AF_INET;
+   ipv4_addr->sin_port = htons(1234);
+   ipv4_addr->sin_addr.S_un.S_addr = htonl(0xC0A80106);
+   */
+
+   ipv6_addr = (struct sockaddr_in6*)&addr1.address;
+   ipv6_addr->sin6_family = AF_INET6;
+   ipv6_addr->sin6_port = htons(1235);
+   memcpy(&ipv6_addr->sin6_addr, ipv6_addr1, 16 );
+
+   
+   ipv6_addr = (struct sockaddr_in6*)&addr2.address;
+   ipv6_addr->sin6_family = AF_INET6;
+   ipv6_addr->sin6_port = htons(1234);
+   memcpy(&ipv6_addr->sin6_addr, ipv6_addr2, 16 );
+   
+
+   result = Net_SockAddrComp(&addr1, &addr2);
+   printf("Addr Result: %i\n", result);
+
+}
+
+
 int main(int args, char * argc[])
 {
    const char * hi = "HI HOW ARE YOU?";
    char l_name[256];
    char r_name[256];
+
+   test_addy_cmp();
    if(args == 4)
    {
       const char * type = argc[1];

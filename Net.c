@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <stddef.h>
 
@@ -128,6 +129,104 @@ size_t Net_AddrToString(const Net_SockAddr_T * addr, char * string, size_t size)
    return out_size;
 }
 
+
+int Net_SockAddrComp(const Net_SockAddr_T * addr1, const Net_SockAddr_T * addr2)
+{
+   int diff, p_diff;
+   struct sockaddr_in  *addy1_ipv4, *addy2_ipv4;
+   struct sockaddr_in6 *addy1_ipv6, *addy2_ipv6;
+   uint32_t ip1_ipv4, ip2_ipv4;
+   uint16_t port1, port2;
+   int i;
+   if(addr1->valid_addr_flag == 1 && addr1->valid_addr_flag == 1)
+   {
+      diff = addr1->address.ss_family - addr2->address.ss_family;
+
+      if(diff == 0)
+      {
+         if(addr1->address.ss_family == AF_INET)
+         {
+            addy1_ipv4 = (struct sockaddr_in *)&addr1->address;
+            addy2_ipv4 = (struct sockaddr_in *)&addr2->address;
+            addy1_ipv6 = NULL;
+            addy2_ipv6 = NULL;
+         }
+         else if(addr1->address.ss_family == AF_INET6)
+         {
+            addy1_ipv4 = NULL;
+            addy2_ipv4 = NULL;
+            addy1_ipv6 = (struct sockaddr_in6 *)&addr1->address;
+            addy2_ipv6 = (struct sockaddr_in6 *)&addr2->address;
+         }
+         else
+         {
+            addy1_ipv4 = NULL;
+            addy2_ipv4 = NULL;
+            addy1_ipv6 = NULL;
+            addy2_ipv6 = NULL; 
+         }
+         
+         if(addy1_ipv4 != NULL)
+         {
+            ip1_ipv4 = ntohl(addy1_ipv4->sin_addr.s_addr);
+            ip2_ipv4 = ntohl(addy2_ipv4->sin_addr.s_addr);
+            diff = (int)(ip1_ipv4 - ip2_ipv4);
+         }
+         else if(addy1_ipv6 != NULL)
+         {
+            diff = 0;
+            for(i = 0; i < 16; i++)
+            {
+               p_diff = addy1_ipv6->sin6_addr.s6_addr[i] - 
+                        addy2_ipv6->sin6_addr.s6_addr[i];
+
+               if(diff == 0)
+               {
+                  if(p_diff < 0)
+                  {
+                     diff = -i;
+                  }
+                  else if(p_diff > 0)
+                  {
+                     diff = i;
+                  }
+               }
+            }
+         }
+         else
+         {
+            diff = -1;
+         }
+
+         if(diff == 0)
+         {
+
+            if(addy1_ipv4 != NULL)
+            {
+               port1 = ntohs(addy1_ipv4->sin_port);
+               port2 = ntohs(addy2_ipv4->sin_port);
+            }
+            else if(addy1_ipv6 != NULL)
+            {
+               port1 = ntohs(addy1_ipv6->sin6_port);
+               port2 = ntohs(addy2_ipv6->sin6_port);
+            }
+            else
+            {
+               port1 = 0;
+               port2 = 1;
+            }
+            diff = (int)(port1 - port2);
+         }
+      }
+   }
+   else
+   {
+      diff = -1;
+   }
+   return diff;
+
+}
 
 int Net_TCPConnectTo(Net_TCPSock_T * sock, const char * address_str, const char * port_str)
 {  
