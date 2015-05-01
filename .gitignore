@@ -6,4 +6,5 @@
 *.swp
 *.o
 net_test
+*.bundle
 

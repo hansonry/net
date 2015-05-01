@@ -93,49 +93,51 @@ int Net_SockAddrIsValid(const Net_SockAddr_T * addr)
 }
 
 #define INVALID_SOCKET_NAME "<INVALID>"
+#define NULL_SOCKET_NAME "<NULL>"
+#define BUFFER_SIZE 10
+#if (BUFFER_SIZE < INET_ADDRSTRLEN)
+#undef BUFFER_SIZE
+#define BUFFER_SIZE INET_ADDRSTRLEN
+#endif 
+#if (BUFFER_SIZE < INET6_ADDRSTRLEN)
+#undef BUFFER_SIZE
+#define BUFFER_SIZE INET6_ADDRSTRLEN
+#endif 
+
 
 size_t Net_AddrIPToString(const Net_SockAddr_T * addr, char * string, size_t size)
 {
    size_t out_size, cpy_size;
-   if(addr->valid_addr_flag == 1)
+   char buffer[BUFFER_SIZE];
+   if(addr != NULL && addr->valid_addr_flag == 1)
    {
 
-      if(addr->address.ss_family == AF_INET)
-      {
-         out_size = INET_ADDRSTRLEN;
-      }
-      else if(addr->address.ss_family == AF_INET6)
-      {
-         out_size = INET6_ADDRSTRLEN;
-      }
-      else
-      {
-         out_size = 0;
-      }
-
-      if(string != NULL && out_size > 0)
-      {
-         inet_ntop(addr->address.ss_family, (void *)&addr->address, string, size);
-      }
+      inet_ntop(addr->address.ss_family, (void *)&addr->address, buffer, BUFFER_SIZE);
    }
-   else 
+   else if(addr == NULL)
    {
-      out_size = sizeof(INVALID_SOCKET_NAME); // Includes Null Terminator
-      
-      if(out_size < size)
-      {
-         cpy_size = out_size;
-      }
-      else
-      {
-         cpy_size = size;
-      }
-      if(string != NULL)
-      {
-         memcpy(string, INVALID_SOCKET_NAME, cpy_size);
-         string[cpy_size - 1] = '\0';
-      }
+      strcpy(buffer, NULL_SOCKET_NAME);
    }
+   else
+   {
+      strcpy(buffer, INVALID_SOCKET_NAME);
+   }
+   out_size = strlen(buffer) + 1;
+
+   if(out_size > size)
+   {
+      cpy_size = size;
+   }
+   else
+   {
+      cpy_size = out_size;
+   }
+   if(string != NULL)
+   {
+      memcpy(string, buffer, cpy_size);
+      string[cpy_size - 1] = '\0';
+   }
+
    return out_size;
 }
 
@@ -144,7 +146,7 @@ int Net_AddrPort(const Net_SockAddr_T * addr)
    int port;
    struct sockaddr_in  *addy_ipv4;
    struct sockaddr_in6 *addy_ipv6;
-   if(addr->valid_addr_flag == 1)
+   if(addr != NULL && addr->valid_addr_flag == 1)
    {
       if(addr->address.ss_family == AF_INET)
       {
@@ -715,10 +717,18 @@ int Net_UDPSockCreate(Net_UDPSock_T * sock, const char * address_str, const char
          }
          else
          {
-            b_result = bind(sock->socket_file, loop->ai_addr, loop->ai_addrlen);
+            if(port_str != NULL)
+            {
+               b_result = bind(sock->socket_file, loop->ai_addr, loop->ai_addrlen);
+            }
+            else
+            {
+               b_result = 0; // No port so the bind was successful
+            }
+
             if(b_result == -1)
             {
-               CLOSESOCKET(sock->socket_file); // Windows only
+               CLOSESOCKET(sock->socket_file);
                sock->socket_file = INVALID_SOCKET;
             }
             else
@@ -761,8 +771,10 @@ int Net_UDPRecv(Net_UDPSock_T * sock, Net_SockAddr_T * addr_from, void * buffer,
    THESET sock_set;
    struct timeval zero_time;
 
-
-   addr_from->valid_addr_flag = 0;
+   if(addr_from != NULL)
+   {
+      addr_from->valid_addr_flag = 0;
+   }
 
    if(sock->socket_file == INVALID_SOCKET)
    {
@@ -793,8 +805,16 @@ int Net_UDPRecv(Net_UDPSock_T * sock, Net_SockAddr_T * addr_from, void * buffer,
 
       if(run_cmd == 1)
       {
-         addr_from->len = sizeof(struct sockaddr_storage);
-         result = recvfrom(sock->socket_file, buffer, buffer_size, 0, (struct sockaddr *)&addr_from->address, &addr_from->len);
+         if(addr_from != NULL)
+         {
+            addr_from->len = sizeof(struct sockaddr_storage);
+            result = recvfrom(sock->socket_file, buffer, buffer_size, 0, (struct sockaddr *)&addr_from->address, &addr_from->len);
+            addr_from->valid_addr_flag = 1;
+         }
+         else
+         {
+            result = recvfrom(sock->socket_file, buffer, buffer_size, 0, NULL, NULL);
+         }
       }
       else
       {
@@ -815,6 +835,7 @@ int Net_UDPSend(Net_UDPSock_T * sock, Net_SockAddr_T * addr_to, const void * buf
    if(sock->socket_file == INVALID_SOCKET || addr_to->valid_addr_flag != 1)
    {
       result = -1;
+      printf("here\n");
    }
    else
    {
