@@ -10,7 +10,7 @@ void test_addy_cmp(void)
 {
    int result;
    Net_SockAddr_T addr1, addr2;
-   struct sockaddr_in * ipv4_addr;
+   //struct sockaddr_in * ipv4_addr;
    struct sockaddr_in6 * ipv6_addr;
    unsigned char ipv6_addr1[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
    unsigned char ipv6_addr2[] = { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -121,7 +121,6 @@ void test_UDP_Comm(const char * type, const char * addr, const char * port)
    const char * hi = "HI HOW ARE YOU?";
    char r_buff[256];
    char l_name[256];
-   char r_name[256];
    printf("%s:%s\n", addr, port);
    if(type[0] == 's')
    {
@@ -176,7 +175,9 @@ void test_UDP_Comm(const char * type, const char * addr, const char * port)
       printf("connected [%s]:%i\n", l_name, Net_AddrPort(Net_UDPSockGetLocalAddr(socket)));
       
       Net_SockAddrCreateUDP(send_addr, addr, port);
-      Net_UDPSend(socket, send_addr, hi, strlen(hi) + 1, NET_DONTBLOCK);
+      Net_AddrIPToString(send_addr, l_name, 256);
+      printf("Target [%s]:%i\n", l_name, Net_AddrPort(send_addr));
+      printf("Send: %i\n", Net_UDPSend(socket, send_addr, hi, strlen(hi) + 1, NET_BLOCK));
       size = 0;
       while(size == 0)
       {

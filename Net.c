@@ -671,10 +671,9 @@ void Net_SockAddrCreateUDP(Net_SockAddr_T * address, const char * address_str, c
    else
    {
 
-      //inet_ntop(loop->ai_family, loop->ai_addr, name, 128);
-      //printf("result %s %s\n", loop->ai_canonname, name);
       // Copy the address
       memcpy(&address->address, results->ai_addr, results->ai_addrlen);
+      address->len = results->ai_addrlen;
       address->valid_addr_flag = 1;
       freeaddrinfo(results);
    }
@@ -688,7 +687,6 @@ int Net_UDPSockCreate(Net_UDPSock_T * sock, const char * address_str, const char
 
    struct addrinfo hints, *results, *loop;
    int gai_result;
-   int gsn_result;
    int b_result;
    int result;
    memset(&hints, 0, sizeof(struct addrinfo));
@@ -835,7 +833,6 @@ int Net_UDPSend(Net_UDPSock_T * sock, Net_SockAddr_T * addr_to, const void * buf
    if(sock->socket_file == INVALID_SOCKET || addr_to->valid_addr_flag != 1)
    {
       result = -1;
-      printf("here\n");
    }
    else
    {
